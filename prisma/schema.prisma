@@ -1,0 +1,85 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+model Usuario {
+  id              Int       @id @default(autoincrement())
+  nombreCompleto  String
+  email           String    @unique
+  password        String
+  rol             Role       @default(CLIENTE)
+  estadoCivil     String?
+  fechaNacimiento DateTime?
+  dni             String?   @unique
+  disponible      Boolean   @default(true)
+  Sexo            Sexo      @default(PREFIERO_NO_DECIR)
+
+  // Relaciones
+  facturas        Factura[] // Relación 1:N con facturas
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+// Enum para los roles disponibles
+enum Role {
+  CLIENTE
+  ADMIN
+}
+enum Sexo {
+  MASCULINO 
+  FEMENINO 
+  NO_BINARIO 
+  PREFIERO_NO_DECIR 
+  OTRO
+}
+model Factura {
+  id               Int                @id @default(autoincrement())
+  fecha            DateTime
+  total            Decimal
+  nombreFantasia   String
+  fechaFundacion   DateTime
+  disponible       Boolean            @default(true)
+
+  usuarioId        Int
+  usuario          Usuario            @relation(fields: [usuarioId], references: [id])
+
+  detallesFactura  DetalleFactura[]   // Relación 1:N
+}
+model DetalleFactura {
+  id         Int       @id @default(autoincrement())
+  cantidad   Int
+  subtotal   Decimal
+  disponible Boolean   @default(true)
+
+  facturaId  Int
+  factura    Factura   @relation(fields: [facturaId], references: [id])
+
+  productoId Int
+  producto   Producto  @relation(fields: [productoId], references: [id])
+}
+
+model Producto {
+  id              Int               @id @default(autoincrement())
+  nombre          String            @db.VarChar(100)
+  descripcion     String?           @db.Text
+  precioUnitario  Decimal           @db.Decimal(10, 2)
+  stock           Int
+  disponible      Boolean           @default(true)
+  detalles        DetalleFactura[]  // Relación 1:N con DetalleFactura
+
+  @@map("productos")
+}
+
+

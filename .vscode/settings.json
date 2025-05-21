@@ -1,0 +1,20 @@
+{
+    "material-icon-theme.activeIconPack": "nest",
+    "sqltools.connections": [
+        {
+            "pgOptions": {
+                "ssl": {
+                    "rejectUnauthorized": true
+                }
+            },
+            "previewLimit": 50,
+            "server": "ep-broad-resonance-a4v98ujl-pooler.us-east-1.aws.neon.tech",
+            "port": 5432,
+            "driver": "PostgreSQL",
+            "name": "neon_carritocompras",
+            "database": "milagros",
+            "username": "milagros_owner",
+            "password": "npg_Pu4m7QkCHOfl"
+        }
+    ]
+}
