@@ -112,15 +112,68 @@ export class FacturasService {
   
   //UPDATE FACTURA
   async update(id: number, updateFacturaDto: UpdateFacturaDto): Promise<Factura> {
-    const factura = await this.facturaRepository.preload({
-      id
-      , ...updateFacturaDto,
-    });
-    if (!factura) {
-      throw new NotFoundException(`Factura con ID ${id} no encontrada`);
-    }
-    return this.facturaRepository.save(factura);
+  const { detallesFactura, usuario, ...datosFactura } = updateFacturaDto;
+
+  const factura = await this.facturaRepository.findOne({
+    where: { id },
+    relations: ['detallesFactura'],
+  });
+
+  if (!factura) {
+    throw new NotFoundException(`Factura con ID ${id} no encontrada`);
   }
+
+  // ✅ Actualizar datos básicos
+  Object.assign(factura, datosFactura);
+  if (usuario) factura.usuario = usuario;
+
+  // ✅ Eliminar detalles anteriores (podés hacerlo lógico o físico)
+  for (const detalle of factura.detallesFactura) {
+    await this.detallefacturaService.remove(detalle.id); // borrado lógico
+  }
+
+  // ✅ Guardar nuevos detalles
+  if (detallesFactura && detallesFactura.length > 0) {
+    for (const detalle of detallesFactura) {
+      const producto = await this.productosService.findOne(detalle.producto.id);
+
+      if (!producto) throw new NotFoundException(`Producto con ID ${detalle.producto.id} no encontrado`);
+
+      if (!producto.precioUnitario) {
+        throw new BadRequestException(`El producto ${producto.nombre} no tiene precio asignado`);
+      }
+
+      await this.detallefacturaService.create({
+        cantidad: detalle.cantidad,
+        disponible: true,
+        producto,
+        factura: factura,
+        subtotal: Number(producto.precioUnitario) * detalle.cantidad,
+      });
+
+      await this.productosService.actualizarStockProducto(
+        producto.id,
+        producto.stock - detalle.cantidad
+      );
+    }
+  }
+
+  // ✅ Recalcular total
+  const facturaConDetalles = await this.facturaRepository.findOne({
+    where: { id },
+    relations: ['detallesFactura', 'detallesFactura.producto'],
+  });
+
+  if (!facturaConDetalles) {
+    throw new NotFoundException('Factura no encontrada al recalcular');
+  }
+
+  facturaConDetalles.total = facturaConDetalles.detallesFactura
+    .filter(det => det.disponible)
+    .reduce((acc, det) => acc + Number(det.subtotal), 0);
+
+  return this.facturaRepository.save(facturaConDetalles);
+}
 
 
   //DELETE FACTURA //Borrado lógico
