@@ -38,7 +38,7 @@ Este proyecto es una **API RESTful para la gestión de un carrito de compras**, 
 ## 🔐 Seguridad y Control de Acceso
 
 - Autenticación con **JWT**
-- Protección de rutas con `@UseGuards(AuthGuard('jwt'))`
+- Protección de rutas con `@UseGuards(AuthGuard())`
 - Control de acceso con roles usando `@Roles('ADMIN')`, `@Roles('CLIENTE')` y `RolesGuard`
 
 ## 🧪 Pruebas con Postman
