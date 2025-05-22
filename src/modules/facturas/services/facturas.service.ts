@@ -123,16 +123,16 @@ export class FacturasService {
     throw new NotFoundException(`Factura con ID ${id} no encontrada`);
   }
 
-  // ✅ Actualizar datos básicos
+  //Actualizar datos básicos
   Object.assign(factura, datosFactura);
   if (usuario) factura.usuario = usuario;
 
-  // ✅ Eliminar detalles anteriores (podés hacerlo lógico o físico)
+  // Eliminar detalles anteriores (podés hacerlo lógico o físico)
   for (const detalle of factura.detallesFactura) {
     await this.detallefacturaService.remove(detalle.id); // borrado lógico
   }
 
-  // ✅ Guardar nuevos detalles
+  // Guardar nuevos detalles
   if (detallesFactura && detallesFactura.length > 0) {
     for (const detalle of detallesFactura) {
       const producto = await this.productosService.findOne(detalle.producto.id);
@@ -158,7 +158,7 @@ export class FacturasService {
     }
   }
 
-  // ✅ Recalcular total
+  // Recalcular total
   const facturaConDetalles = await this.facturaRepository.findOne({
     where: { id },
     relations: ['detallesFactura', 'detallesFactura.producto'],
