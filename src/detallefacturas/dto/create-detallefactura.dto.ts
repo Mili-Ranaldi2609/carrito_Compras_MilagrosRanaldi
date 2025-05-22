@@ -1,6 +1,7 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsBoolean, IsInt, IsNotEmpty, IsNumber, Max, Min } from "class-validator";
+import { IsBoolean, IsInt, IsNotEmpty, IsNumber, IsOptional, Max, Min } from "class-validator";
 import { Factura } from "src/facturas/entities/factura.entity";
+
 import { Producto } from "src/productos/entities/producto.entity";
 
 export class CreateDetallefacturaDto {
@@ -17,7 +18,10 @@ export class CreateDetallefacturaDto {
     @ApiProperty({ type: () => Producto })
     @IsNotEmpty()
     producto: Producto;
-    @ApiProperty({ type: () => Factura })
-    @IsNotEmpty()
-    factura: Factura;
+     @IsNumber()
+    @IsOptional()
+    subtotal?: number;
+    factura:Factura
+
+    
 }

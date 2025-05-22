@@ -29,4 +29,5 @@ export class CreateFacturaDto {
     @ApiProperty({ type: () => Usuario })
     @IsNotEmpty()
     usuario: Usuario;
+   
 }

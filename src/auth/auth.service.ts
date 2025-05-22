@@ -17,11 +17,11 @@ export class AuthService {
     if (user) {
       throw new BadRequestException('User already exists');
     }
-
+    registerDto.password = await bcryptjs.hash(registerDto.password, 10);
     await this.usuariosService.create(registerDto);
-
+    const  { password, ...userWithoutPassword } = registerDto;	
     return {
-      registerDto
+      user: userWithoutPassword,
     };
   }
     async login({ email, password }: LoginDto) {

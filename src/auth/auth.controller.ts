@@ -19,7 +19,6 @@ export class AuthController {
     @ApiOperation({ summary: 'Login' })
     @ApiResponse({ status: 200, description: 'Login exitoso' })
     @ApiResponse({ status: 401, description: 'Credenciales inválidas' })
-    @ApiBearerAuth()
     login(@Body()loginDto:LoginDto) {
         return this.authService.login(loginDto);
     }
@@ -27,6 +26,7 @@ export class AuthController {
     @ApiOperation({ summary: 'Register' })
     @ApiResponse({ status: 201, description: 'Registro exitoso' })
     @ApiResponse({ status: 400, description: 'Error en el registro' })
+    
     register(@Body()registerDto:RegisterDto) {
         return this.authService.register(registerDto);
     }

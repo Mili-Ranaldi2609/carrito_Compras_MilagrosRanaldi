@@ -1,6 +1,6 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { Transform } from "class-transformer";
-import { IsDate, IsDateString, IsEmail, IsEnum, IsNotEmpty, IsString, Length, MaxLength } from "class-validator";
+import {  IsDateString, IsEmail, IsEnum, IsNotEmpty, IsString, Length, MaxLength } from "class-validator";
 import { Role } from "src/common/enums/rol.enum";
 
 

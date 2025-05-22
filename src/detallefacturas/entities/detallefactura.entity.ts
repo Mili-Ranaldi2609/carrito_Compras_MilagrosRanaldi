@@ -15,7 +15,7 @@ export class Detallefactura {
     @Column({ default: true })
     disponible: boolean;
 
-    @Column({ type: 'decimal', precision: 10, scale: 2 })
+    @Column({ type: 'decimal', precision: 10, scale: 2 ,nullable: true})
     subtotal: number;
 
     @Column({ type: 'int' })
