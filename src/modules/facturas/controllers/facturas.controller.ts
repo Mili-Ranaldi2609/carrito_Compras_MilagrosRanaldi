@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Put, ParseIntPipe, UseGuards} from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Put, ParseIntPipe, UseGuards, Request } from '@nestjs/common';
 
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from 'src/modules/auth/guard/auth.guard';
@@ -25,23 +25,19 @@ export class FacturasController {
   @Get()
   @ApiBearerAuth()
   @UseGuards(AuthGuard)
-  @ApiOperation({ summary: 'Get all facturas' })
-  @ApiResponse({ status: 200, description: 'Get all facturas' })
-  @ApiResponse({ status: 404, description: 'Forbidden' })
-  findAll() {
-    return this.facturasService.findAll();
+  @ApiOperation({ summary: 'Get all facturas del usuario autenticado' })
+  findAll(@Request() req) {
+    return this.facturasService.findAllByEmail(req.user.email);
   }
+
 
   @Get(':id')
   @ApiBearerAuth()
   @UseGuards(AuthGuard)
-  @ApiOperation({ summary: 'Obtener Factura por ID' })
-  @ApiParam({ name: 'id', description: 'ID de la Factura', required: true })
-  @ApiResponse({ status: 200, description: 'Factura encontrada correctamente' })
-  @ApiResponse({ status: 404, description: 'Factura no encontrada' })
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.facturasService.findOne(id );
+  findOne(@Param('id', ParseIntPipe) id: number, @Request() req) {
+    return this.facturasService.findOneByEmail(id, req.user.email); 
   }
+
   @Put(':id')
   @ApiBearerAuth()
   @UseGuards(AuthGuard)
@@ -50,7 +46,7 @@ export class FacturasController {
   @ApiResponse({ status: 200, description: 'Factura actualizada correctamente' })
   @ApiResponse({ status: 404, description: 'Factura no encontrada' })
   @ApiResponse({ status: 400, description: 'Datos inválidos en la solicitud' })
-  update(@Param('id', ParseIntPipe) id: number,  @Body() dto: UpdateFacturaDto) {
+  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateFacturaDto) {
     return this.facturasService.update(id, dto);
   }
 
