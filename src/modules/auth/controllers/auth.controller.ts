@@ -16,8 +16,6 @@ export class AuthController {
         private readonly authService: AuthService, 
     ) {}
     @Post('login')
-    @UseGuards(AuthGuard)
-    @ApiBearerAuth()
     @ApiOperation({ summary: 'Login' })
     @ApiResponse({ status: 200, description: 'Login exitoso' })
     @ApiResponse({ status: 401, description: 'Credenciales inválidas' })
@@ -25,8 +23,6 @@ export class AuthController {
         return this.authService.login(loginDto);
     }
     @Post('register')
-    @ApiBearerAuth()
-    @UseGuards(AuthGuard)
     @ApiOperation({ summary: 'Register' })
     @ApiResponse({ status: 201, description: 'Registro exitoso' })
     @ApiResponse({ status: 400, description: 'Error en el registro' })

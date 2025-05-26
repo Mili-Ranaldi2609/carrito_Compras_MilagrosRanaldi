@@ -44,6 +44,7 @@ export class DetallefacturasService {
   //FIND ALL DETALLEFACTURAS
   async findAll(): Promise<Detallefactura[]> {
     return this.detallefacturaRepository.find({
+      where: { disponible: true },
       relations: ['factura', 'producto'],
     })
   }

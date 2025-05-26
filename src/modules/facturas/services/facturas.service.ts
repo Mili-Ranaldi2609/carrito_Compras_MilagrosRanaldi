@@ -1,190 +1,222 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { UpdateFacturaDto } from '../dto/update-factura.dto';
-import { Factura } from '../entities/factura.entity';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { CreateFacturaDto } from '../dto/create-factura.dto';
-import { DetallefacturasService } from 'src/modules/detallefacturas/services/detallefacturas.service';
-import { UsuariosService } from 'src/modules/users/services/usuarios.service';
-import { ProductosService } from 'src/modules/productos/services/productos.service';
+  import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+  import { UpdateFacturaDto } from '../dto/update-factura.dto';
+  import { Factura } from '../entities/factura.entity';
+  import { InjectRepository } from '@nestjs/typeorm';
+  import { Repository } from 'typeorm';
+  import { CreateFacturaDto } from '../dto/create-factura.dto';
+  import { DetallefacturasService } from 'src/modules/detallefacturas/services/detallefacturas.service';
+  import { UsuariosService } from 'src/modules/users/services/usuarios.service';
+  import { ProductosService } from 'src/modules/productos/services/productos.service';
 
-@Injectable()
-export class FacturasService {
-  constructor(
-    private readonly productosService: ProductosService,
-    private readonly detallefacturaService: DetallefacturasService,
-    private readonly usuarioService: UsuariosService,
-    @InjectRepository(Factura)
-    private readonly facturaRepository: Repository<Factura>
+  @Injectable()
+  export class FacturasService {
+    constructor(
+      private readonly productosService: ProductosService,
+      private readonly detallefacturaService: DetallefacturasService,
+      private readonly usuarioService: UsuariosService,
+      @InjectRepository(Factura)
+      private readonly facturaRepository: Repository<Factura>
 
-  ) { }
-  //CREATE FACTURA
-  async create(createFacturaDto: CreateFacturaDto): Promise<Factura> {
-  const { detallesFactura, usuario, ...datosFactura } = createFacturaDto;
+    ) { }
+    //CREATE FACTURA
+    async create(createFacturaDto: CreateFacturaDto): Promise<Factura> {
+      const { detallesFactura, usuario, ...datosFactura } = createFacturaDto;
 
-  if (!usuario || !usuario.id) {
-    throw new BadRequestException('El ID del usuario es obligatorio');
-  }
+      if (!usuario || !usuario.id) {
+        throw new BadRequestException('El ID del usuario es obligatorio');
+      }
 
-  for (const detalle of detallesFactura) {
-    const producto = await this.productosService.findOne(detalle.producto.id);
+      for (const detalle of detallesFactura) {
+        const producto = await this.productosService.findOne(detalle.producto.id);
 
-    if (!producto) throw new NotFoundException(`Producto con ID ${detalle.producto.id} no encontrado`);
+        if (!producto) throw new NotFoundException(`Producto con ID ${detalle.producto.id} no encontrado`);
 
-    if (producto.stock < detalle.cantidad) {
-      throw new BadRequestException(`Stock insuficiente para el producto ${producto.nombre}`);
+        if (producto.stock < detalle.cantidad) {
+          throw new BadRequestException(`Stock insuficiente para el producto ${producto.nombre}`);
+        }
+      }
+
+      const nuevaFactura = this.facturaRepository.create({
+        ...datosFactura,
+        usuario,
+      });
+
+      const facturaGuardada = await this.facturaRepository.save(nuevaFactura);
+
+      for (const detalle of detallesFactura) {
+        const producto = await this.productosService.findOne(detalle.producto.id);
+
+        if (!producto) {
+          throw new NotFoundException(`Producto con ID ${detalle.producto.id} no encontrado`);
+        }
+
+        if (!producto.precioUnitario) {
+          throw new BadRequestException(`El producto ${producto.nombre} no tiene precio asignado`);
+        }
+
+        await this.detallefacturaService.create({
+          cantidad: detalle.cantidad,
+          disponible: detalle.disponible,
+          producto,
+          factura: facturaGuardada,
+          subtotal: Number(producto.precioUnitario) * detalle.cantidad,
+        });
+        // Actualizar el stock del producto
+        await this.productosService.actualizarStockProducto(
+          producto.id,
+          producto.stock - detalle.cantidad
+        );
+      }
+
+      const facturaActualizada = await this.facturaRepository.findOne({
+        where: { id: facturaGuardada.id },
+        relations: ['detallesFactura', 'detallesFactura.producto'],
+      });
+
+      if (!facturaActualizada) {
+        throw new NotFoundException('Factura no encontrada desde create factura');
+      }
+      //se actualiza el total de la factura
+      const nuevoTotal = facturaActualizada.detallesFactura
+        .filter(det => det.disponible)
+        .reduce((acc, det) => acc + Number(det.subtotal), 0);
+
+      facturaActualizada.total = nuevoTotal;
+      await this.facturaRepository.save(facturaActualizada);
+
+      return facturaActualizada;
     }
-  }
-
-  const nuevaFactura = this.facturaRepository.create({
-    ...datosFactura,
-    usuario,
-  });
-
-  const facturaGuardada = await this.facturaRepository.save(nuevaFactura);
-
-  for (const detalle of detallesFactura) {
-    const producto = await this.productosService.findOne(detalle.producto.id );
-
-    if (!producto) {
-      throw new NotFoundException(`Producto con ID ${detalle.producto.id} no encontrado`);
-    }
-
-    if (!producto.precioUnitario) {
-      throw new BadRequestException(`El producto ${producto.nombre} no tiene precio asignado`);
-    }
-
-    await this.detallefacturaService.create({
-      cantidad: detalle.cantidad,
-      disponible: detalle.disponible,
-      producto,
-      factura: facturaGuardada,
-      subtotal: Number(producto.precioUnitario) * detalle.cantidad,
-    });
-    // Actualizar el stock del producto
-    await this.productosService.actualizarStockProducto(
-      producto.id,
-      producto.stock - detalle.cantidad
-    );
-  }
-
-  const facturaActualizada = await this.facturaRepository.findOne({
-    where: { id: facturaGuardada.id },
-    relations: ['detallesFactura', 'detallesFactura.producto'],
-  });
-
-  if (!facturaActualizada) {
-    throw new NotFoundException('Factura no encontrada desde create factura');
-  }
-  //se actualiza el total de la factura
-  const nuevoTotal = facturaActualizada.detallesFactura
-    .filter(det => det.disponible)
-    .reduce((acc, det) => acc + Number(det.subtotal), 0);
-
-  facturaActualizada.total = nuevoTotal;
-  await this.facturaRepository.save(facturaActualizada);
-
-  return facturaActualizada;
-}
 
 
-  //FIND ALL FACTURAS
+    //FIND ALL FACTURAS
   async findAll(): Promise<Factura[]> {
-    return this.facturaRepository.find({
+    const facturas = await this.facturaRepository.find({
+      where: { disponible: true },
       relations: ['detallesFactura', 'detallesFactura.producto'],
-    })
+    });
+
+    return facturas.map(factura => ({
+      ...factura,
+      detallesFactura: factura.detallesFactura.filter(det => det.disponible),
+    }));
   }
-  //FIND FACTURA BY ID
-  async findOne(id: number): Promise<Factura> {
+
+    //FIND FACTURA BY ID
+    async findOne(id: number): Promise<Factura> {
+      const factura = await this.facturaRepository.findOne({
+        where: { id, disponible: true },
+        relations: ['detallesFactura', 'detallesFactura.producto'],
+      });
+      console.log(factura);
+
+      if (!factura) {
+        throw new NotFoundException('Factura no encontrada desde findOne de Factura');
+      }
+      
+    // ✅ Filtrar detalles que estén disponibles
+    factura.detallesFactura = factura.detallesFactura.filter(det => det.disponible);
+
+      return factura;
+    }
+
+    //UPDATE FACTURA
+  async update(id: number, updateFacturaDto: UpdateFacturaDto): Promise<Factura> {
+    const { detallesFactura, usuario, ...datosFactura } = updateFacturaDto;
+
     const factura = await this.facturaRepository.findOne({
       where: { id },
-      relations: ['usuario'],
+      relations: ['detallesFactura'],
     });
-    console.log(factura);
 
     if (!factura) {
-      throw new NotFoundException('Factura no encontrada desde findOne de Factura');
+      throw new NotFoundException(`Factura con ID ${id} no encontrada`);
     }
 
+    // Actualizar datos básicos
+    Object.assign(factura, datosFactura);
+    if (usuario) factura.usuario = usuario;
 
-    return factura;
+    const detallesActuales = factura.detallesFactura;
+    const idsNuevos = detallesFactura?.map(d => d.id).filter(Boolean) || [];
+
+    // 🔴 Desactivar (borrado lógico) los detalles que ya no vienen
+    for (const detalle of detallesActuales) {
+      if (!idsNuevos.includes(detalle.id)) {
+        await this.detallefacturaService.remove(detalle.id);
+      }
+    }
+
+    // 🟢 Crear o actualizar los detalles nuevos
+    if (detallesFactura && detallesFactura.length > 0) {
+      for (const detalle of detallesFactura) {
+        const producto = await this.productosService.findOne(detalle.producto.id);
+        if (!producto) throw new NotFoundException(`Producto con ID ${detalle.producto.id} no encontrado`);
+
+        const subtotal = Number(producto.precioUnitario) * detalle.cantidad;
+
+        if (detalle.id) {
+          // Si tiene ID → es existente → actualizalo
+          await this.detallefacturaService.update(detalle.id, {
+            cantidad: detalle.cantidad,
+            disponible: true,
+            subtotal,
+          });
+        } else {
+          // Si no tiene ID → es nuevo → crealo
+          await this.detallefacturaService.create({
+            cantidad: detalle.cantidad,
+            disponible: true,
+            producto,
+            factura,
+            subtotal,
+          });
+        }
+
+        // Actualizar stock
+        await this.productosService.actualizarStockProducto(
+          producto.id,
+          producto.stock - detalle.cantidad
+        );
+      }
+    }
+
+    // 🔄 Recalcular total
+    const facturaConDetalles = await this.facturaRepository.findOne({
+      where: { id },
+      relations: ['detallesFactura', 'detallesFactura.producto'],
+    });
+
+    if (!facturaConDetalles) {
+      throw new NotFoundException('Factura no encontrada al recalcular');
+    }
+
+    facturaConDetalles.total = facturaConDetalles.detallesFactura
+      .filter(det => det.disponible)
+      .reduce((acc, det) => acc + Number(det.subtotal), 0);
+
+    return this.facturaRepository.save(facturaConDetalles);
   }
-  
-  //UPDATE FACTURA
-  async update(id: number, updateFacturaDto: UpdateFacturaDto): Promise<Factura> {
-  const { detallesFactura, usuario, ...datosFactura } = updateFacturaDto;
 
+    //DELETE FACTURA //Borrado lógico
+   async remove(id: number): Promise<Factura> {
   const factura = await this.facturaRepository.findOne({
     where: { id },
-    relations: ['detallesFactura'],
+    relations: ['detallesFactura'], // 👈 necesario para acceder a los detalles
   });
 
   if (!factura) {
     throw new NotFoundException(`Factura con ID ${id} no encontrada`);
   }
 
-  //Actualizar datos básicos
-  Object.assign(factura, datosFactura);
-  if (usuario) factura.usuario = usuario;
-
-  // Eliminar detalles anteriores (podés hacerlo lógico o físico)
+  // 🔁 Eliminar (borrado lógico) todos los detalles asociados
   for (const detalle of factura.detallesFactura) {
-    await this.detallefacturaService.remove(detalle.id); // borrado lógico
+    await this.detallefacturaService.remove(detalle.id); // 👈 usás tu servicio
   }
 
-  // Guardar nuevos detalles
-  if (detallesFactura && detallesFactura.length > 0) {
-    for (const detalle of detallesFactura) {
-      const producto = await this.productosService.findOne(detalle.producto.id);
+  // 🔴 Marcar la factura como eliminada
+  factura.disponible = false;
 
-      if (!producto) throw new NotFoundException(`Producto con ID ${detalle.producto.id} no encontrado`);
-
-      if (!producto.precioUnitario) {
-        throw new BadRequestException(`El producto ${producto.nombre} no tiene precio asignado`);
-      }
-
-      await this.detallefacturaService.create({
-        cantidad: detalle.cantidad,
-        disponible: true,
-        producto,
-        factura: factura,
-        subtotal: Number(producto.precioUnitario) * detalle.cantidad,
-      });
-
-      await this.productosService.actualizarStockProducto(
-        producto.id,
-        producto.stock - detalle.cantidad
-      );
-    }
-  }
-
-  // Recalcular total
-  const facturaConDetalles = await this.facturaRepository.findOne({
-    where: { id },
-    relations: ['detallesFactura', 'detallesFactura.producto'],
-  });
-
-  if (!facturaConDetalles) {
-    throw new NotFoundException('Factura no encontrada al recalcular');
-  }
-
-  facturaConDetalles.total = facturaConDetalles.detallesFactura
-    .filter(det => det.disponible)
-    .reduce((acc, det) => acc + Number(det.subtotal), 0);
-
-  return this.facturaRepository.save(facturaConDetalles);
+  return this.facturaRepository.save(factura);
 }
 
-
-  //DELETE FACTURA //Borrado lógico
-  async remove(id: number): Promise<Factura> {
-    const factura = await this.facturaRepository.findOneBy({ id });
-
-    if (!factura) {
-      throw new NotFoundException(`Factura con ID ${id} no encontrada`);
-    }
-    factura.disponible = false;
-    return this.facturaRepository.save(factura);
   }
-
-}

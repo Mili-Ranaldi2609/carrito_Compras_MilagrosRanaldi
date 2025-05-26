@@ -11,19 +11,37 @@ export class AuthService {
         private readonly usuariosService: UsuariosService,
         private readonly jwtService: JwtService
     ) { }
-    async register(registerDto: RegisterDto) {
-    const user = await this.usuariosService.findOneByEmail(registerDto.email);
+  async register(registerDto: RegisterDto) {
+  const userExists = await this.usuariosService.findOneByEmail(registerDto.email);
 
-    if (user) {
-      throw new BadRequestException('User already exists');
-    }
-    registerDto.password = await bcryptjs.hash(registerDto.password, 10);
-    await this.usuariosService.create(registerDto);
-    const  { password, ...userWithoutPassword } = registerDto;	
-    return {
-      user: userWithoutPassword,
-    };
+  if (userExists) {
+    throw new BadRequestException('User already exists');
   }
+
+  // Hashear la contraseña
+  registerDto.password = await bcryptjs.hash(registerDto.password, 10);
+
+  // Crear el usuario
+  await this.usuariosService.create(registerDto);
+
+  // Volver a obtenerlo para tener el objeto con ID y rol
+  const user = await this.usuariosService.findOneByEmail(registerDto.email);
+
+  if (!user) {
+    throw new BadRequestException('User could not be found after creation');
+  }
+
+  // Generar el token
+  const payload = { email: user.email, role: user.rol };
+  const token = await this.jwtService.signAsync(payload);
+
+  return {
+    token,
+    email: user.email,
+    role: user.rol,
+  };
+}
+
     async login({ email, password }: LoginDto) {
         const user = await this.usuariosService.findByEmailWithPassword(email);
         if (!user) {
