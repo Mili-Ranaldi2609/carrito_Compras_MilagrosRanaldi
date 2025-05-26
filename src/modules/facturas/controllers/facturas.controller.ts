@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Put, ParseIntPipe, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Put, ParseIntPipe, UseGuards, Request, Query } from '@nestjs/common';
 
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from 'src/modules/auth/guard/auth.guard';
@@ -23,12 +23,25 @@ export class FacturasController {
   }
 
   @Get()
-  @ApiBearerAuth()
-  @UseGuards(AuthGuard)
-  @ApiOperation({ summary: 'Get all facturas del usuario autenticado' })
-  findAll(@Request() req) {
-    return this.facturasService.findAllByEmail(req.user.email);
-  }
+@UseGuards(AuthGuard)
+@ApiBearerAuth()
+@ApiOperation({ summary: 'Listar facturas con filtros y paginación' })
+findAll(
+  @Request() req,
+  @Query('page') page: number = 1,
+  @Query('limit') limit: number = 10,
+  @Query('order') order: 'ASC' | 'DESC' = 'DESC',
+  @Query('fecha') fecha?: string, // formato YYYY-MM-DD
+) {
+  return this.facturasService.findAllByEmail({
+    email: req.user.email,
+    page,
+    limit,
+    order,
+    fecha,
+  });
+}
+
 
 
   @Get(':id')

@@ -89,25 +89,32 @@ export class FacturasService {
 
 
   //FIND ALL FACTURAS
-  async findAllByEmail(email: string): Promise<Factura[]> {
-    const user = await this.usuarioService.findOneByEmail(email);
+  async findAllByEmail(options: FacturaFilterOptions): Promise<Factura[]> {
+  const { email, page = 1, limit = 10, order = 'DESC', fecha } = options;
 
-    if (!user) throw new UnauthorizedException('Usuario no encontrado');
+  const user = await this.usuarioService.findOneByEmail(email);
+  if (!user) throw new UnauthorizedException('Usuario no encontrado');
 
-    const facturas = await this.facturaRepository.find({
-      where: {
-        disponible: true,
-        usuario: { id: user.id }, //solo las facturas del usuario
-      },
-      relations: ['detallesFactura', 'detallesFactura.producto'],
-    });
+  const query = this.facturaRepository.createQueryBuilder('factura')
+    .leftJoinAndSelect('factura.detallesFactura', 'detalles')
+    .leftJoinAndSelect('detalles.producto', 'producto')
+    .where('factura.usuarioId = :userId', { userId: user.id })
+    .andWhere('factura.disponible = true')
+    .orderBy('factura.id', order)
+    .skip((page - 1) * limit)
+    .take(limit);
 
-    return facturas.map(factura => ({
-      ...factura,
-      detallesFactura: factura.detallesFactura.filter(det => det.disponible),
-    }));
+  if (fecha) {
+    query.andWhere('factura.fecha = :fecha', { fecha });
   }
 
+  const facturas = await query.getMany();
+
+  return facturas.map(factura => ({
+    ...factura,
+    detallesFactura: factura.detallesFactura.filter(det => det.disponible),
+  }));
+}
 
   //FIND FACTURA BY ID
   async findOne(id: number): Promise<Factura> {
